@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { PRESETS, describe, presetFromSearch } from '../src/screens.js';
 import { guides } from '../content/seo/screens.mjs';
 
-const origin = 'https://tickervane.vercel.app';
+const origin = (process.env.SITE_ORIGIN || 'https://abovealphasolutions.com').replace(/\/+$/, '');
 const decode = s => s.replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&quot;','"').replaceAll('&#39;',"'");
 const localFile = path => path === '/' ? 'index.html' : 'public'+(path.endsWith('/')?path+'index.html':path);
 

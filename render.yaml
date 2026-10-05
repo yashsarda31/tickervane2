@@ -1,0 +1,39 @@
+# Render Blueprint for the new Alpha Nova app on abovealphasolutions.com
+# (Cloudflare DNS -> Render web service). Single Node service serves the
+# Vite static build AND /api/* on the same origin (see server.js), so no
+# CORS setup and no Python backend are needed.
+#
+# Deploy: push this folder's repo to GitHub, then Render Dashboard ->
+# New -> Blueprint -> select the repo. Add the secret env vars below when
+# prompted (copy values from the existing Vercel project alphanova2).
+# Custom domains (abovealphasolutions.com + www) are added in the Render
+# Dashboard after the first deploy, then pointed at in Cloudflare DNS.
+services:
+  - type: web
+    name: alphanova-terminal
+    runtime: node
+    plan: free
+    # Free sleeps after ~15 min idle: fine for research traffic, but closed-app
+    # push checks only run when the evening cron hits a warm instance. Use
+    # `starter` (or higher) if push reliability matters.
+    buildCommand: npm ci && npm run build
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: SITE_ORIGIN
+        value: https://abovealphasolutions.com
+      - key: VAPID_SUBJECT
+        value: mailto:contact@alphanova48.in
+      # Private per-device push storage (same store the Vercel app uses).
+      - key: BLOB_READ_WRITE_TOKEN
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      # External cron (cron-job.org) calls /api/push?op=cron with
+      # `Authorization: Bearer $CRON_SECRET` at 14:00 and 16:00 UTC, Mon-Fri.
+      - key: CRON_SECRET
+        generateValue: true
