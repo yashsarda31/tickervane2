@@ -1,0 +1,30 @@
+# Evening push cron: closed-app price checks + delivery/screener digests.
+# Runs against the production domain (Cloudflare -> Render). The free Render
+# instance may cold-start on the first request; curl's default timeout tolerates it.
+# Requires repo secret CRON_SECRET (same value as the Render service env var).
+name: push-cron
+
+on:
+  schedule:
+    # 14:00 UTC Mon-Fri (19:30 IST): price checks + delivery digest window
+    - cron: '0 14 * * 1-5'
+    # 16:00 UTC Mon-Fri (21:30 IST): second evening pass
+    - cron: '0 16 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger push cron (with cold-start retry)
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o /tmp/cron.json -w '%{http_code}' --max-time 100 \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              'https://abovealphasolutions.com/api/push?op=cron')
+            echo "attempt=$attempt http=$code"
+            if [ "$code" = "200" ]; then cat /tmp/cron.json; exit 0; fi
+            sleep 60
+          done
+          echo "cron trigger failed after 3 attempts"; cat /tmp/cron.json; exit 1
