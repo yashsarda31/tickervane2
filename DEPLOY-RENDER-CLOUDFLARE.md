@@ -71,16 +71,23 @@ homepage canonical, one screener + Forecast load with live data.
 **Rollback:** flip the Cloudflare records back to `alphanova-web.onrender.com`.
 Nothing is deleted in this plan, so rollback is a DNS change only.
 
-## 4. Evening push cron (replaces Vercel cron)
+## 4. Evening push cron — GitHub Actions (already wired, needs secret sync)
 
-Render free has no cron; add two jobs at **cron-job.org** (free tier is enough),
-Mon–Fri:
+Render free has no cron, so `.github/workflows/push-cron.yml` (already pushed
+to `tickervane2@main`) calls `GET https://abovealphasolutions.com/api/push?op=cron`
+at **14:00 and 16:00 UTC, Mon–Fri**, plus manual `workflow_dispatch`, with
+3 attempts (cold-start tolerant).
 
-- `GET https://abovealphasolutions.com/api/push?op=cron` at **14:00 UTC** and **16:00 UTC**
-- Header: `Authorization: Bearer <CRON_SECRET from step 2>`
-
-Without these, closed-app price checks / delivery digests don't run; open tabs
-still check every 5 minutes on their own.
+It authenticates with repo secret `CRON_SECRET` (already set on the repo).
+**One human step remains:** the Render service env var `CRON_SECRET` still
+holds the old auto-generated value, so the workflow gets 401 until they match.
+In Render Dashboard → alphanova-terminal → Environment → Edit, set
+`CRON_SECRET` to the value in
+`C:\Users\yashs\AppData\Local\Temp\opencode\cronsecret.txt`
+(same value already stored as the GitHub repo secret), then
+Save, rebuild, and deploy. Verify with:
+`curl -H "Authorization: Bearer <secret>" https://abovealphasolutions.com/api/push?op=cron`
+expecting HTTP 200 (not 401).
 
 ## 5. After go-live
 
