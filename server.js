@@ -11,6 +11,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import marketHandler from './api/market.js';
 import pushHandler from './api/push.js';
+import { VIEW_SEO, seoForView } from './src/seo.js';
+import { viewHtml } from './lib/seo-html.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(root, 'dist');
@@ -75,27 +77,45 @@ function adapt(req, res, url) {
   }
 }
 
-async function serveFile(res, pathname, fallback = false) {
-  const file = path.join(dist, fallback ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '') || 'index.html');
-  if (!file.startsWith(dist)) {
+async function serveFile(req, res, pathname, searchParams) {
+  let decoded;
+  try { decoded = decodeURIComponent(pathname); } catch {
+    res.writeHead(400, { ...securityHeaders(), 'X-Robots-Tag':'noindex' }); res.end('Invalid URL'); return;
+  }
+  const file = path.resolve(dist, '.' + decoded);
+  if (file !== dist && !file.startsWith(dist + path.sep)) {
     res.statusCode = 403;
     res.end('Forbidden');
     return;
   }
   try {
-    const s = await stat(file);
-    if (s.isDirectory()) return serveFile(res, '/index.html');
-    const body = await readFile(file);
-    const ext = path.extname(file).toLowerCase();
-    const headers = { ...securityHeaders(), 'Cache-Control': cacheControl(fallback ? '/' : pathname) };
+    const target = pathname === '/' ? path.join(dist, 'index.html') : file;
+    const s = await stat(target);
+    if (!s.isFile()) throw new Error('Not a file');
+    let body = await readFile(target);
+    const ext = path.extname(target).toLowerCase();
+    const headers = { ...securityHeaders(), 'Cache-Control': cacheControl(pathname) };
     if (TYPES[ext]) headers['Content-Type'] = TYPES[ext];
+    if (ext === '.html') {
+      headers['X-Robots-Tag'] = 'index, follow, max-image-preview:large';
+      if (pathname === '/') {
+        const page = searchParams.get('page') || 'Today';
+        if (!VIEW_SEO[page]) {
+          res.writeHead(404, { ...securityHeaders(), 'Content-Type':'text/html; charset=utf-8', 'X-Robots-Tag':'noindex, follow' });
+          res.end('<!doctype html><html lang="en-IN"><title>Page not found | Alpha Nova</title><meta name="robots" content="noindex, follow"><h1>Page not found</h1><a href="/">Above Alpha Solutions home</a></html>'); return;
+        }
+        body = viewHtml(body.toString('utf8'), page, process.env.SITE_ORIGIN || 'https://abovealphasolutions.com');
+        headers['X-Robots-Tag'] = seoForView(page).robots;
+        // Metadata varies by query; shared caches must never reuse private-view HTML.
+        headers['Cache-Control'] = 'no-cache';
+      }
+    } else if (pathname.startsWith('/assets/') || pathname === '/pricing.md' || pathname === '/llms.txt') headers['X-Robots-Tag'] = 'noindex';
     if (pathname === '/sw.js') headers['Service-Worker-Allowed'] = '/';
     res.writeHead(200, headers);
-    res.end(body);
+    res.end(req.method === 'HEAD' ? undefined : body);
   } catch {
-    if (!fallback) return serveFile(res, pathname, true); // SPA fallback
-    res.writeHead(404, { ...securityHeaders(), 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not found');
+    res.writeHead(404, { ...securityHeaders(), 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag':'noindex, follow' });
+    res.end(req.method === 'HEAD' ? undefined : '<!doctype html><html lang="en-IN"><title>Page not found | Alpha Nova</title><meta name="robots" content="noindex, follow"><h1>Page not found</h1><a href="/">Above Alpha Solutions home</a></html>');
   }
 }
 
@@ -105,21 +125,23 @@ const server = http.createServer(async (req, res) => {
     const pathname = url.pathname;
 
     if (pathname === '/healthz') {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'X-Robots-Tag':'noindex' });
       res.end(JSON.stringify({ ok: true }));
       return;
     }
     if (pathname === '/index.html') {
-      res.writeHead(308, { Location: '/' });
+      res.writeHead(308, { Location: '/' + url.search });
       res.end();
       return;
     }
     if (pathname === '/api/market' || pathname === '/api/market.js') {
+      res.setHeader('X-Robots-Tag','noindex');
       adapt(req, res, url);
       await marketHandler(req, res);
       return;
     }
     if (pathname === '/api/push' || pathname === '/api/push.js') {
+      res.setHeader('X-Robots-Tag','noindex');
       adapt(req, res, url);
       await pushHandler(req, res);
       return;
@@ -129,7 +151,7 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: 'Unknown API route' }));
       return;
     }
-    await serveFile(res, pathname);
+    await serveFile(req, res, pathname, url.searchParams);
   } catch (e) {
     try {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });

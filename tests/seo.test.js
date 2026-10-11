@@ -4,6 +4,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { PRESETS, describe, presetFromSearch } from '../src/screens.js';
 import { guides } from '../content/seo/screens.mjs';
+import { VIEW_SEO } from '../src/seo.js';
+import { viewHtml } from '../lib/seo-html.js';
 
 const origin = (process.env.SITE_ORIGIN || 'https://abovealphasolutions.com').replace(/\/+$/, '');
 const decode = s => s.replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&quot;','"').replaceAll('&#39;',"'");
@@ -19,13 +21,14 @@ test('public guide generation preserves rules, canonicals, structured data and l
   const sitemap = await readFile('public/sitemap.xml','utf8');
   const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
   assert.equal(new Set(urls).size,urls.length);
-  assert.equal(urls.length,15);
+  assert.equal(urls.length,15 + Object.entries(VIEW_SEO).filter(([key,v])=>key!=='Today' && v.index).length);
   const titles = new Set();
   const descriptions = new Set();
   for (const url of urls) {
     assert.equal(new URL(url).origin,origin);
-    assert.equal(new URL(url).search,'');
-    const html = await readFile(localFile(new URL(url).pathname),'utf8');
+    const location = new URL(url);
+    const source = await readFile(localFile(location.pathname),'utf8');
+    const html = location.search ? viewHtml(source,location.searchParams.get('page'),origin) : source;
     assert.ok(!html.includes('tickervane.vercel.app'),`Old domain in public metadata: ${url}`);
     assert.equal((html.match(/<h1[ >]/g)||[]).length,1,url);
     assert.equal((html.match(/rel="canonical"/g)||[]).length,1,url);
@@ -63,6 +66,10 @@ test('public guide generation preserves rules, canonicals, structured data and l
   assert.ok(root.includes('href="/screens.html"'));
   for (const g of guides) assert.ok(hub.includes(`/screens/${g.slug}.html`));
   const first = await readFile('public/sitemap.xml','utf8');
+  const about = await readFile('public/about.html','utf8');
+  const home = await readFile('index.html','utf8');
   execFileSync(process.execPath,['scripts/generate-seo.mjs']);
   assert.equal(await readFile('public/sitemap.xml','utf8'),first,'Build must not change lastmod');
+  assert.equal(await readFile('public/about.html','utf8'),about,'Build must not duplicate brand copy');
+  assert.equal(await readFile('index.html','utf8'),home,'Homepage generation must be deterministic');
 });

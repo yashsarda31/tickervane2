@@ -6,6 +6,7 @@ import Watchlist from "./Watchlist.jsx";
 import { growthEvent, recordVisit, recordActivation } from "./growth.js";
 import "./onboarding.css";
 import { PAGES, PAGE_LABELS, viewFromSearch, viewURL } from "./navigation.js";
+import { applyViewSeo, VIEW_SEO } from "./seo.js";
 import { exportCSV, sortRows } from "./ui";
 import { buildBackup, parseBackup } from "./backup";
 import { presetFromSearch } from "./screens";
@@ -575,20 +576,25 @@ export default function App() {
       if (
         page === "Screener" &&
         screenerView.active &&
+        screenerView.active !== "momentum" &&
         screenerView.active !== "custom"
       )
         u.searchParams.set("screen", screenerView.active);
       else u.searchParams.delete("screen");
+      // Overview and list views do not depend on a selected stock or chart range.
+      // Keep their normal URLs canonical; stock-specific views retain shareable inputs.
+      if (["Today", "Markets", "Screener", "Delivery", "Flows"].includes(page)) {
+        u.searchParams.delete("symbol");
+        u.searchParams.delete("range");
+      }
+      if (page === "Today") u.searchParams.delete("page");
       const next = u.pathname + u.search;
       if (location.pathname + location.search !== next)
         window.history.replaceState(window.history.state, "", next);
     } catch {}
   }, [symbol, page, range, screenerView.active]);
   useEffect(() => {
-    document.title =
-      page === "Today" || page === "Terminal"
-        ? "Alpha Nova (AlphaNova) | Indian Stock Screener"
-        : `${page === "Screener" ? "Nifty 500 Stock Screener" : page === "Delivery" ? "NSE Delivery Radar" : page === "FnO" ? "NSE Option Chain & Futures OI" : page === "Flows" ? "FII DII Flows & Bulk Deals" : page} | Alpha Nova Terminal`;
+    applyViewSeo(page);
   }, [page]);
   useEffect(() => {
     setActiveIdx(0);
@@ -1307,29 +1313,7 @@ export default function App() {
           <div className="workspace-heading">
             <div>
               <h1>
-                {page === "Today"
-                  ? "Overview"
-                  : page === "Terminal"
-                    ? "Research & plan"
-                    : page === "Markets"
-                      ? "Markets"
-                      : page === "Forecast"
-                        ? "Price forecast"
-                        : page === "Screener"
-                          ? "Market screener"
-                          : page === "Delivery"
-                            ? "Delivery radar"
-                            : page === "FnO"
-                              ? "Futures & options"
-                              : page === "Flows"
-                                ? "Institutional flows"
-                                : page === "News"
-                                  ? "The newswire"
-                                  : page === "Portfolio"
-                                    ? "Portfolio"
-                                    : page === "Journal"
-                                      ? "Journal"
-                                      : page === "Watchlist" ? "Watchlist" : "Price alerts"}
+                {VIEW_SEO[page].heading}
               </h1>
             </div>
             <div className="heading-actions">
