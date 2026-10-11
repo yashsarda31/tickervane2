@@ -1,4 +1,5 @@
 import News from "./News.jsx";
+import NewSiteBanner from "./NewSiteBanner.jsx";
 import Navigation from "./Navigation.jsx";
 import Onboarding from "./Onboarding.jsx";
 import Watchlist from "./Watchlist.jsx";
@@ -1276,6 +1277,7 @@ export default function App() {
         ))}
       </div>
       <main id="main-content" tabIndex={-1}>
+        <NewSiteBanner />
         <Onboarding state={onboarding} onState={setOnboarding} watch={watchedStocks}
           onToggle={toggleWatch} onNavigate={navigate} onAlert={openWatchAlert}
           alerts={alerts} pushOn={!!alertPrefs?.push} />
@@ -2018,7 +2020,7 @@ export default function App() {
                   {(isNS || symbol === "^NSEI" || symbol === "^NSEBANK") && (
                     <button
                       className="button"
-                      title="End-of-day option chain, if this stock trades in F&O"
+                      title="NSE option chain, if this stock trades in F&O"
                       onClick={() => {
                         try {
                           localStorage.setItem(
@@ -2086,8 +2088,7 @@ export default function App() {
               symbol={symbol}
               refresh={refresh}
               onRefresh={() => setRefresh((x) => x + 1)}
-              onSearch={() => openSearch("forecast")}
-              onOpenChart={() => setPage("Terminal")}
+              onSymbol={choose}
             />
           )}
           {page === "Screener" && (

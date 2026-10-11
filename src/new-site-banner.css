@@ -1,0 +1,19 @@
+.new-site-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--theme-accent-surface, #91b4ff15);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.new-site-banner a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

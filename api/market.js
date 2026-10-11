@@ -1,6 +1,7 @@
+import { liveOptions, liveFutures, FUTURES_GROUPS } from '../lib/nseOptions.js';
 import { stockDirectory } from '../src/stocks.js';
 import { recentSessions, nifty500, buildRadar, buildScreen, deliveryStats, deliverySignal, BASELINE } from '../lib/nse.js';
-import { latestFo, optionChain, underlyings, futuresBuildup, participants, fiiDii, deals } from '../lib/fno.js';
+import { latestFo, futuresBuildup, participants, fiiDii, deals } from '../lib/fno.js';
 import { rotation } from '../lib/indices.js';
 const cache = new Map();
 // Basic per-instance rate limiting so one client cannot exhaust Yahoo upstream
@@ -38,12 +39,12 @@ export function normalize(result, symbol, range, adjusted = false) {
   const price=m.regularMarketPrice ?? unique.at(-1).close;
   return {symbol,name:m.longName || m.shortName || symbol,currency:m.currency || 'USD',exchange:m.exchangeName,price,previous,change:Number.isFinite(previous)&&previous>0?(price/previous-1)*100:null,marketTime:m.regularMarketTime,dayHigh:m.regularMarketDayHigh,dayLow:m.regularMarketDayLow,volume:m.regularMarketVolume,yearHigh:m.fiftyTwoWeekHigh,yearLow:m.fiftyTwoWeekLow,timezone:m.exchangeTimezoneName,delay:m.exchangeDataDelayedBy ?? null,bars:unique,source:'Yahoo Finance',fetchedAt:new Date().toISOString(),range,...(adjusted?{adjusted:true}:{})};
 }
-export async function chart(symbol,range,adjusted=false) {
- const key=`${symbol}:${range}${adjusted?':adjusted':''}`, old=cache.get(key);
+export async function chart(symbol,range,adjusted=false,daily=false) {
+ const key=`${symbol}:${range}${adjusted?':adjusted':''}${daily?':daily':''}`, old=cache.get(key);
  if(old && Date.now()-old.at<15000)return old.data;
  for(const host of ['query2.finance.yahoo.com','query1.finance.yahoo.com']) {
   try {
-   const r=await fetch(`https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${intervals[range]}&includePrePost=false${adjusted?'&includeAdjustedClose=true':''}`,{headers:{'User-Agent':'Mozilla/5.0',Accept:'application/json'},signal:AbortSignal.timeout(7000)});
+   const r=await fetch(`https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${daily?'1d':intervals[range]}&includePrePost=false${adjusted?'&includeAdjustedClose=true':''}`,{headers:{'User-Agent':'Mozilla/5.0',Accept:'application/json'},signal:AbortSignal.timeout(7000)});
    if(!r.ok)continue;
    const j=await r.json();if(!j.chart?.result?.[0])continue;
    const data=normalize(j.chart.result[0],symbol,range,adjusted);
@@ -399,7 +400,8 @@ export default async function handler(req,res){
    const s=String(req.query.symbol||'').trim().toUpperCase(),range=String(req.query.range||'6mo');
    if(!validSymbol(s)||!intervals[range])return res.status(400).json({error:'Invalid symbol or range'});
    if(req.query.adjusted!=null && (!['0','1'].includes(String(req.query.adjusted)) || ['1d','5d'].includes(range)))return res.status(400).json({error:'Adjusted history requires a daily or weekly range'});
-   data=await chart(s,range,req.query.adjusted==='1');
+   if(req.query.daily!=null && (!['0','1'].includes(String(req.query.daily)) || ['1d','5d'].includes(range)))return res.status(400).json({error:'Daily history requires a daily or weekly range'});
+   data=await chart(s,range,req.query.adjusted==='1',req.query.daily==='1');
    cacheControl='public, max-age=0, s-maxage=15';
   }else if(op==='quotes'){
    const symbols=[...new Set(String(req.query.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean))];
@@ -443,13 +445,15 @@ export default async function handler(req,res){
    cacheControl='public, max-age=300, s-maxage=900, stale-while-revalidate=3600';
    data=await buildScreen();
   }else if(op==='options'){
-   // End-of-day chain from the F&O bhavcopy; NSE publishes it after the close.
    const s=String(req.query.symbol||'NIFTY').trim().toUpperCase(),exp=String(req.query.expiry||'');
    if(!/^[A-Z0-9&-]{1,20}$/.test(s)||(exp&&!/^\d{4}-\d{2}-\d{2}$/.test(exp)))return res.status(400).json({error:'Invalid symbol or expiry'});
-   const fo=await latestFo();const chain=optionChain(fo,s,exp);
-   if(!chain)return res.status(404).json({error:`${s} has no listed options in the ${fo.date} F&O bhavcopy`,symbols:underlyings(fo)});
-   data={...chain,symbols:underlyings(fo),fetchedAt:new Date().toISOString()};
-   cacheControl='public, max-age=300, s-maxage=1800, stale-while-revalidate=21600';
+   data=await liveOptions(s,exp);
+   cacheControl='no-store';
+  }else if(op==='live-futures'){
+   const group=String(req.query.group||'nse50_fut');
+   if(!FUTURES_GROUPS.includes(group))return res.status(400).json({error:'Invalid futures group'});
+   data=await liveFutures(group);
+   cacheControl='no-store';
   }else if(op==='futures'){
    data=futuresBuildup(await latestFo());
    cacheControl='public, max-age=300, s-maxage=1800, stale-while-revalidate=21600';
