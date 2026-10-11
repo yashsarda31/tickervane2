@@ -2766,6 +2766,9 @@ export default function App() {
         <span>Market data may be delayed · Research only</span>
         <a href="/stock-prices.html">Stock prices</a>
         <a href="/stock-market-app.html">Stock market app</a>
+        <a href="/best-trading-app.html">Compare trading apps</a>
+        <a href="/best-stock-trading-app.html">Stock research checklist</a>
+        <a href="/best-trading-app-for-beginners.html">Beginner guide</a>
         <a href="/about.html">About & data sources</a>
         <a
           href="https://www.tradingview.com/lightweight-charts/"

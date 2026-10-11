@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { VIEW_SEO, SITE_ORIGIN, seoForView } from '../src/seo.js';
+import { tradingGuides } from '../content/seo/trading-apps.mjs';
 const base = (process.argv[2] || SITE_ORIGIN).replace(/\/+$/, '');
 const output = process.argv[3] || 'docs/seo-live-verification-2026-10-11.json';
 const decode = s => s.replaceAll('&amp;','&').replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>');
@@ -31,7 +32,7 @@ try {
   const sitemap = await sitemapResponse.text();
   const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>decode(m[1]));
   assert.equal(new Set(urls).size,urls.length);
-  assert.equal(urls.length,23);
+  assert.equal(urls.length,23 + tradingGuides.length);
   for (const url of urls) {
     const u = new URL(url); assert.equal(u.origin,SITE_ORIGIN);
     report.pages.push(await inspect(u.pathname+u.search,url,'index, follow, max-image-preview:large'));

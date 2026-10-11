@@ -4,6 +4,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { PRESETS, describe, presetFromSearch } from '../src/screens.js';
 import { guides } from '../content/seo/screens.mjs';
+import { tradingGuides, tradingGuidesUpdated } from '../content/seo/trading-apps.mjs';
 import { VIEW_SEO } from '../src/seo.js';
 import { viewHtml } from '../lib/seo-html.js';
 
@@ -28,7 +29,7 @@ test('public guide generation preserves rules, canonicals, structured data and l
   const sitemap = await readFile('public/sitemap.xml','utf8');
   const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
   assert.equal(new Set(urls).size,urls.length);
-  assert.equal(urls.length,15 + Object.entries(VIEW_SEO).filter(([key,v])=>key!=='Today' && v.index).length);
+  assert.equal(urls.length,15 + tradingGuides.length + Object.entries(VIEW_SEO).filter(([key,v])=>key!=='Today' && v.index).length);
   const titles = new Set();
   const descriptions = new Set();
   for (const url of urls) {
@@ -68,6 +69,23 @@ test('public guide generation preserves rules, canonicals, structured data and l
     assert.ok(urls.includes(origin+'/screens/'+guide.slug+'.html'));
   }
   const root = await readFile('index.html','utf8');
+  const app = await readFile('src/App.jsx','utf8');
+  const product = await readFile('public/stock-market-app.html','utf8');
+  for (const guide of tradingGuides) {
+    const html = await readFile('public'+guide.path,'utf8');
+    assert.ok(root.includes(guide.path), 'Homepage discovery: '+guide.path);
+    assert.ok(product.includes(guide.path), 'Product page discovery: '+guide.path);
+    assert.ok(app.includes(guide.path), 'Rendered app discovery: '+guide.path);
+    assert.ok(!/<script[^>]+src=/.test(html), 'Guides work without JavaScript');
+    const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'];
+    const article = graph.find(n=>n['@type']==='Article');
+    assert.equal(article.headline,guide.name);
+    assert.equal(article.author['@id'],origin+'/#organization');
+    assert.equal(article.dateModified,tradingGuidesUpdated);
+    assert.ok(html.includes('Above Alpha Solutions</a>'));
+    assert.ok(!graph.some(n=>['AggregateRating','Review'].includes(n['@type'])));
+    for (const related of tradingGuides.filter(g=>g!==guide)) assert.ok(html.includes(related.path));
+  }
   const robots = await readFile('public/robots.txt','utf8');
   assert.ok(robots.includes(`Sitemap: ${origin}/sitemap.xml`));
   const hub = await readFile('public/screens.html','utf8');

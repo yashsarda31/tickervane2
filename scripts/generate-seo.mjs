@@ -2,23 +2,25 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { PRESETS, describe } from '../src/screens.js';
 import { guides, updated } from '../content/seo/screens.mjs';
 import { optimizeSeo } from './optimize-seo.mjs';
+import { tradingGuides, tradingGuidesUpdated } from '../content/seo/trading-apps.mjs';
 
 const origin = (process.env.SITE_ORIGIN || 'https://abovealphasolutions.com').replace(/\/+$/, '');
-const updatedLabel = new Intl.DateTimeFormat('en-GB', {day:'numeric', month:'long', year:'numeric', timeZone:'UTC'}).format(new Date(updated+'T00:00:00Z'));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link = (path, name) => `<a href="${esc(path)}">${esc(name)}</a>`;
 const guidePath = g => `/screens/${g.slug}.html`;
 const paragraphs = xs => xs.map(p=>`<p>${esc(p)}</p>`).join('\n');
 const lists = xs => `<ol>${xs.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`;
 const pages = [];
-function page({path, name, description, body, parent, type='WebPage'}) {
+function page({path, name, description, body, parent, type='WebPage', article=false, modifiedDate=updated}) {
   const url = origin + path;
   const title = `${name} | Alpha Nova`;
   const crumbs = [{name:'Alpha Nova',item:origin+'/'}, ...(parent?[{name:'Screener guides',item:origin+'/screens.html'}]:[]),{name,item:url}];
   const graph = [
-    {'@type':type,'@id':url+'#webpage',url,name:title,description,inLanguage:'en-IN',dateModified:updated,isPartOf:{'@id':origin+'/#website'},about:{'@id':origin+'/#app'},breadcrumb:{'@id':url+'#breadcrumb'}},
+    {'@type':type,'@id':url+'#webpage',url,name:title,description,inLanguage:'en-IN',dateModified:modifiedDate,isPartOf:{'@id':origin+'/#website'},about:{'@id':origin+'/#app'},breadcrumb:{'@id':url+'#breadcrumb'}},
     {'@type':'BreadcrumbList','@id':url+'#breadcrumb',itemListElement:crumbs.map((c,i)=>({'@type':'ListItem',position:i+1,...c}))}
   ];
+  if (article) graph.push({'@type':'Article','@id':url+'#article',headline:name,description,url,datePublished:modifiedDate,dateModified:modifiedDate,inLanguage:'en-IN',author:{'@id':origin+'/#organization'},publisher:{'@id':origin+'/#organization'},mainEntityOfPage:{'@id':url+'#webpage'}});
+  const dateLabel = new Intl.DateTimeFormat('en-GB', {day:'numeric', month:'long', year:'numeric', timeZone:'UTC'}).format(new Date(modifiedDate+'T00:00:00Z'));
   const html = `<!doctype html>
 <html lang="en-IN"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b1016">
@@ -33,11 +35,12 @@ function page({path, name, description, body, parent, type='WebPage'}) {
 <header><nav class="seo-nav" aria-label="Site navigation">${link('/','↗ ALPHA NOVA TERMINAL').replace('<a ','<a class="seo-brand" ')}${link('/screens.html','Screener guides')}${link('/methodology.html','Methodology')}${link('/pricing.html','Pricing')}${link('/about.html','About and data')}</nav></header>
 <main id="content"><nav class="seo-breadcrumb" aria-label="Breadcrumb">${crumbs.map((c,i)=>i===crumbs.length-1?`<span aria-current="page">${esc(c.name)}</span>`:link(new URL(c.item).pathname,c.name)).join(' / ')}</nav>
 <span class="eyebrow">Alpha Nova research guides</span><h1>${esc(name)}</h1>
-<p class="data-note">Documentation updated <time datetime="${updated}">${updatedLabel}</time> · Describes the current app; not a market-data timestamp.</p>
+<p class="data-note">${article ? 'By <a href="/about.html">Above Alpha Solutions</a> · ' : ''}Documentation updated <time datetime="${modifiedDate}">${dateLabel}</time> · Describes the current app; not a market-data timestamp.</p>
 ${body}
 </main><footer>Alpha Nova Terminal · ${link('/about.html','About and data sources')} · ${link('/llms.txt','Site guide in plain text')} · Research tools, not investment advice.</footer></body></html>\n`;
   pages.push({path,name,description,html});
 }
+for (const guide of tradingGuides) page({...guide,article:true,modifiedDate:tradingGuidesUpdated});
 for (const g of guides) {
   const preset = PRESETS.find(p=>p.id===g.id);
   if (!preset || !g.example || g.checks.length<3 || !g.caveat) throw new Error(`Incomplete guide: ${g.id}`);

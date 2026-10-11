@@ -54,3 +54,9 @@
 .seo-page .seo-skip{position:absolute;left:-9999px;top:0;padding:12px;background:#a9c4ff;color:#101820;z-index:10}
 .seo-page .seo-skip:focus{left:0}
 .seo-page a:focus-visible{outline:2px solid #a9c4ff;outline-offset:5px}
+.seo-page .seo-table-wrap{overflow-x:auto;max-width:100%;margin:24px 0;border:1px solid #344967;border-radius:10px}
+.seo-page table{border-collapse:collapse;width:100%;min-width:600px;font-size:14px;line-height:1.7}
+.seo-page caption{text-align:left;padding:16px;color:#d7e0ea;font-weight:600}
+.seo-page th,.seo-page td{text-align:left;vertical-align:top;padding:16px;border-top:1px solid #344967}
+.seo-page td{color:#b9c5d2}
+.seo-page .seo-table-wrap:focus-visible{outline:2px solid #a9c4ff;outline-offset:3px}
