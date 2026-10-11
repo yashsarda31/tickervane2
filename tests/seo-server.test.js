@@ -14,7 +14,7 @@ function checkPage(html, canonical) {
   const title = decode(html.match(/<title>(.*?)<\/title>/s)[1]);
   const description = decode(html.match(/name="description" content="(.*?)"/s)[1]);
   assert.ok(title.length >= 30 && title.length <= 60,`${canonical}: title ${title.length}`);
-  assert.ok(description.length >= 140 && description.length <= 160,`${canonical}: description ${description.length}`);
+  assert.ok(description.length >= 140 && description.length <= 155,`${canonical}: description ${description.length}`);
   for (const [property,value] of [['og:title',title],['og:description',description],['og:url',canonical]]) {
     assert.equal(decode(html.match(new RegExp(`property="${property}" content="(.*?)"`))[1]),value);
   }

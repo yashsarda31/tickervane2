@@ -4,9 +4,9 @@ import { withSeo, viewHtml } from '../lib/seo-html.js';
 
 const decode = s => s.replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&quot;','"').replaceAll('&#39;',"'");
 const overrides = {
-  '/about.html': {title:'About Above Alpha Solutions and Alpha Nova',description:'Meet Alpha Nova by Above Alpha Solutions and founder Yash Sarda. Explore the stock research app, its data sources, browser storage and research limitations.'},
-  '/pricing.html': {title:'Alpha Nova Pricing and Free Research Tools',description:'Explore Alpha Nova pricing: free stock research tools with no subscription required. Review included features, saved-screen limits and separate broker costs.'},
-  '/delivery-radar.html': {description:'Explore NSE delivery volume and percentage in Alpha Nova. Compare stocks with their prior 20-session average, check source dates and review research limits.'},
+  '/about.html': {title:'About Above Alpha Solutions and Alpha Nova',description:'Meet Alpha Nova by Above Alpha Solutions and founder Yash Sarda. Explore the stock research app, its data sources, browser storage and research limits.'},
+  '/pricing.html': {title:'Alpha Nova Pricing and Free Research Tools',description:'Explore Alpha Nova pricing: free stock research tools with no subscription required. Review included features, saved-screen limits and broker costs.'},
+  '/delivery-radar.html': {description:'Explore NSE delivery volume and percentage in Alpha Nova. Compare stocks with their prior 20-session average, check source dates and review data limits.'},
 };
 export async function optimizeSeo(origin) {
   let sitemap = await readFile('public/sitemap.xml','utf8');

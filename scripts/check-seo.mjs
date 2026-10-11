@@ -14,7 +14,7 @@ async function inspect(path, canonical, robots) {
   const title = decode(html.match(/<title>(.*?)<\/title>/s)?.[1] || '');
   const description = decode(html.match(/name="description" content="(.*?)"/s)?.[1] || '');
   assert.ok(title.length >= 30 && title.length <= 60,path+' title length');
-  assert.ok(description.length >= 140 && description.length <= 160,path+' description length');
+  assert.ok(description.length >= 140 && description.length <= 155,path+' description length');
   assert.equal((html.match(/rel="canonical"/g)||[]).length,1,path+' canonical count');
   assert.equal(decode(html.match(/rel="canonical" href="(.*?)"/)?.[1] || ''),canonical,path+' canonical');
   assert.equal((html.match(/<h1[ >]/g)||[]).length,1,path+' H1 count');

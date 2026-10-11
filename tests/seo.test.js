@@ -11,6 +11,13 @@ const origin = (process.env.SITE_ORIGIN || 'https://abovealphasolutions.com').re
 const decode = s => s.replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&quot;','"').replaceAll('&#39;',"'");
 const localFile = path => path === '/' ? 'index.html' : 'public'+(path.endsWith('/')?path+'index.html':path);
 
+test('every workspace description passes the Detailed SEO extension length check', () => {
+  // Installed extension 2.2.7 accepts 70-155 characters; keep our copy within 140-155.
+  for (const [page, {description}] of Object.entries(VIEW_SEO)) {
+    assert.ok(description.length >= 140 && description.length <= 155,`${page}: description ${description.length}`);
+  }
+});
+
 test('guide deep links select only known presets in the screener workspace', () => {
   for (const p of PRESETS) assert.equal(presetFromSearch('?page=Screener&screen='+p.id),p.id);
   for (const q of ['', '?screen=volume', '?page=Today&screen=volume', '?page=Screener&screen=custom', '?page=Screener&screen=unknown']) assert.equal(presetFromSearch(q),null);
@@ -35,7 +42,8 @@ test('public guide generation preserves rules, canonicals, structured data and l
     assert.ok(html.includes(`rel="canonical" href="${url}"`),url);
     assert.ok(!/<meta[^>]+content="[^"]*noindex/.test(html),url);
     const title = html.match(/<title>(.*?)<\/title>/)[1];
-    const description = html.match(/name="description" content="(.*?)"/)[1];
+    const description = decode(html.match(/name="description" content="(.*?)"/)[1]);
+    assert.ok(description.length >= 140 && description.length <= 155,`${url}: description ${description.length}`);
     assert.ok(!titles.has(title),`Duplicate title: ${title}`); titles.add(title);
     assert.ok(!descriptions.has(description),`Duplicate description: ${description}`); descriptions.add(description);
     const schemas = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
