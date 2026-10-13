@@ -24,7 +24,9 @@ Live inspection confirmed that abovealphasolutions.com now serves the Node termi
 - Production build: passed. Final focused production-server and guide tests: passed.
 - Local HTTP verification: all 23 canonical pages, all 13 parameterized workspace variants, and 8 redirect/error/asset/crawler checks passed. See `seo-local-verification-2026-10-11.json`.
 - Local rendered browser: public/private/public navigation updates descriptions, canonicals, robots and schema; normal homepage and default screener URLs match their canonicals; a single H1 and no horizontal overflow were observed on desktop and the narrow browser viewport.
-- Public verification is recorded separately in `seo-live-verification-2026-10-11.json` after deployment.
+- Public verification: all 23 canonical URLs, 13 workspace variants and 8 redirect/error/asset/crawler checks passed with no failures. See `seo-live-verification-2026-10-11.json`.
+- Render confirmed commit `08cca367befeeee1984c01a5fb07401a65d8ea0c` live in deployment `dep-db5f5kbbc2fs738nb220` (43.6 seconds). The public browser loaded the expected `index-98SE_-XI.js` asset; homepage and default screener URLs matched their canonicals, the homepage had one H1, and no browser errors or page overflow were observed.
+- Live `/healthz` and the quote API returned HTTP 200 JSON. This confirms transport, not provider freshness or financial accuracy.
 
 ## Interpreting SEO extension checks
 

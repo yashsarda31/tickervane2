@@ -26,6 +26,15 @@ The existing Google Ads Keyword Planner view was set to India, English, Google, 
 
 ## Boundaries and follow-up
 
-Deployment, Search Console verification and sitemap submission are recorded separately after completion. Valid metadata and a submitted sitemap do not prove Google indexing or ranking. No ranking gains, backlink metrics or field Core Web Vitals have been measured.
+Valid metadata and a submitted sitemap do not prove Google indexing or ranking. No ranking gains, backlink metrics or field Core Web Vitals have been measured.
+
+## Live release and Google submission
+
+- Production commit `bb4c1654b632ccaa2936c7a0488d7286b267f765` deployed successfully in Render deployment `dep-db5flgivcj2c73el00fg`, reported Live after 51.8 seconds.
+- Cloudflare-served homepage contains the new discovery links, both verification tags, and expected tested asset `index-ntqsSoNh.js`.
+- Live HTTP matrix passed: 26 canonical pages, 13 variants and 8 additional checks, zero failures. Evidence: `trading-app-seo-live-2026-10-11.json`.
+- Live comparison guide rendered with its expected title, one H1, self-canonical and Article schema; no page-level overflow observed.
+- Verified Search Console URL-prefix property `https://abovealphasolutions.com/` through the HTML tag. Submitted `sitemap.xml`; Google showed "Sitemap submitted successfully" and Success. Google discovery, indexing and ranking are not confirmed by that status. Screenshot: `trading-app-seo-search-console-2026-10-11.png`.
+- The original nested checkout was fast-forwarded to this release; its pre-existing dirty report and evidence files were preserved. Parent checkout and older app sources were not changed.
 
 Relevant sources: [Google helpful content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content), [Kite product documentation](https://zerodha.com/products/kite/), [Groww stocks](https://groww.in/stocks), [SEBI investor support](https://investor.sebi.gov.in/Investor-support.html).
