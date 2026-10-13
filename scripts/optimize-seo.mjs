@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { VIEW_SEO, seoForView } from '../src/seo.js';
+import { WORKSPACE_SEO } from '../src/seo.js';
 import { withSeo, viewHtml } from '../lib/seo-html.js';
 
 const decode = s => s.replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&quot;','"').replaceAll('&#39;',"'");
@@ -8,10 +8,14 @@ const overrides = {
   '/pricing.html': {title:'Alpha Nova Pricing and Free Research Tools',description:'Explore Alpha Nova pricing: free stock research tools with no subscription required. Review included features, saved-screen limits and broker costs.'},
   '/delivery-radar.html': {description:'Explore NSE delivery volume and percentage in Alpha Nova. Compare stocks with their prior 20-session average, check source dates and review data limits.'},
 };
+const workspacePaths = new Set(Object.values(WORKSPACE_SEO).map(s => s.path));
 export async function optimizeSeo(origin) {
-  let sitemap = await readFile('public/sitemap.xml','utf8');
+  const sitemap = await readFile('public/sitemap.xml','utf8');
   const paths = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => new URL(decode(m[1])).pathname);
   for (const pathname of new Set(paths)) {
+    // Workspace entry pages (except /) are built into dist/ by
+    // build-workspace-seo.mjs; they have no public/ source file.
+    if (workspacePaths.has(pathname) && pathname !== '/') continue;
     const filename = pathname === '/' ? 'index.html' : 'public'+pathname;
     let html = await readFile(filename,'utf8');
     if (pathname === '/') {
@@ -25,9 +29,5 @@ export async function optimizeSeo(origin) {
     }
     await writeFile(filename,html);
   }
-  // Only canonical public views belong in the sitemap. Inputs and private data do not.
-  const entries = Object.entries(VIEW_SEO).filter(([key,v]) => key !== 'Today' && v.index).map(([key]) => `  <url><loc>${seoForView(key,origin).canonical}</loc><lastmod>2026-10-11</lastmod></url>`).join('\n');
-  sitemap = sitemap.replace(/<url><loc>[^<]+<\/loc><lastmod>[^<]+<\/lastmod><\/url>/g, match => match.replace(/<lastmod>.*?<\/lastmod>/,'<lastmod>2026-10-11</lastmod>'));
-  await writeFile('public/sitemap.xml',sitemap.replace('</urlset>',entries+'\n</urlset>'));
   await writeFile('public/robots.txt',`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${origin}/sitemap.xml\n`);
 }

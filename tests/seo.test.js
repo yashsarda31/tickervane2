@@ -5,12 +5,14 @@ import { execFileSync } from 'node:child_process';
 import { PRESETS, describe, presetFromSearch } from '../src/screens.js';
 import { guides } from '../content/seo/screens.mjs';
 import { tradingGuides, tradingGuidesUpdated } from '../content/seo/trading-apps.mjs';
-import { VIEW_SEO } from '../src/seo.js';
+import { VIEW_SEO, WORKSPACE_SEO, SITE_ORIGIN, updatePageMetadata, robotsForPage } from '../src/seo.js';
+import { viewFromLocation } from '../src/navigation.js';
 import { viewHtml } from '../lib/seo-html.js';
 
-const origin = (process.env.SITE_ORIGIN || 'https://abovealphasolutions.com').replace(/\/+$/, '');
+const origin = (process.env.SITE_ORIGIN || SITE_ORIGIN).replace(/\/+$/, '');
 const decode = s => s.replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&quot;','"').replaceAll('&#39;',"'");
 const localFile = path => path === '/' ? 'index.html' : 'public'+(path.endsWith('/')?path+'index.html':path);
+const isWorkspacePath = path => Object.values(WORKSPACE_SEO).some(p=>p.path===path);
 
 test('every workspace description passes the Detailed SEO extension length check', () => {
   // Installed extension 2.2.7 accepts 70-155 characters; keep our copy within 140-155.
@@ -29,15 +31,21 @@ test('public guide generation preserves rules, canonicals, structured data and l
   const sitemap = await readFile('public/sitemap.xml','utf8');
   const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
   assert.equal(new Set(urls).size,urls.length);
-  assert.equal(urls.length,15 + tradingGuides.length + Object.entries(VIEW_SEO).filter(([key,v])=>key!=='Today' && v.index).length);
+  const workspacePublic = Object.values(WORKSPACE_SEO).filter(p=>!p.noindex).map(p=>p.path).filter(p=>p!=='/');
+  assert.equal(urls.length, 6 + guides.length + tradingGuides.length + 3 + workspacePublic.length);
   const titles = new Set();
   const descriptions = new Set();
   for (const url of urls) {
     assert.equal(new URL(url).origin,origin);
     const location = new URL(url);
+    if (isWorkspacePath(location.pathname)) {
+      assert.equal(location.search,'');
+      continue; // workspace HTML is built into dist/ by build-workspace-seo.mjs; checked after build
+    }
     const source = await readFile(localFile(location.pathname),'utf8');
     const html = location.search ? viewHtml(source,location.searchParams.get('page'),origin) : source;
     assert.ok(!html.includes('tickervane.vercel.app'),`Old domain in public metadata: ${url}`);
+    assert.ok(!html.includes('alphanova48.in'),`Old canonical domain in public metadata: ${url}`);
     assert.equal((html.match(/<h1[ >]/g)||[]).length,1,url);
     assert.equal((html.match(/rel="canonical"/g)||[]).length,1,url);
     assert.ok(html.includes(`rel="canonical" href="${url}"`),url);
@@ -55,9 +63,10 @@ test('public guide generation preserves rules, canonicals, structured data and l
       const target = new URL(decode(match[1]),url);
       if (target.origin!==origin) continue;
       const path = target.pathname;
+      if (isWorkspacePath(path)) continue; // served from dist/ after build
       if (path.startsWith('/src/')) { assert.ok((await stat(path.slice(1))).isFile()); continue; }
       assert.ok((await stat(localFile(path))).isFile(),`${url} → ${path}`);
-      if (target.searchParams.has('screen')) assert.ok(presetFromSearch(target.search));
+      if (target.searchParams.has('screen')) assert.ok(presetFromSearch(target.search+'&page='+viewFromLocation(target).page));
     }
   }
   for (const guide of guides) {
@@ -98,4 +107,40 @@ test('public guide generation preserves rules, canonicals, structured data and l
   assert.equal(await readFile('public/sitemap.xml','utf8'),first,'Build must not change lastmod');
   assert.equal(await readFile('public/about.html','utf8'),about,'Build must not duplicate brand copy');
   assert.equal(await readFile('index.html','utf8'),home,'Homepage generation must be deterministic');
+});
+
+test('workspace SEO uses descriptive headings and excludes device-local shells from indexing', () => {
+  assert.equal(WORKSPACE_SEO.Today.heading, 'Alpha Nova: Indian Stock Market Overview');
+  assert.equal(WORKSPACE_SEO.Screener.heading, 'Nifty 500 Stock Screener');
+  assert.equal(WORKSPACE_SEO.Delivery.heading, 'NSE Delivery Volume & Percentage Analysis');
+  assert.equal(WORKSPACE_SEO.Terminal.heading, 'Stock Charts & Technical Analysis');
+  assert.equal(WORKSPACE_SEO.Flows.heading, 'FII DII Data & NSE Bulk and Block Deals');
+  for (const [page, seo] of Object.entries(WORKSPACE_SEO)) {
+    assert.ok(seo.title.length >= 40 && seo.title.length <= 70, `${page}: title ${seo.title.length}`);
+    assert.ok(seo.description.length >= 140 && seo.description.length <= 160, `${page}: description ${seo.description.length}`);
+    assert.equal(typeof robotsForPage(seo), 'string', page);
+  }
+});
+
+test('client navigation restores robots, canonical and structured metadata in both directions', () => {
+  const attributes = new Map();
+  const script = {textContent: JSON.stringify({'@graph': [{'@type':'WebPage'}, {'@type':'WebSite', name:'Alpha Nova'}]})};
+  const doc = {
+    title: '',
+    querySelector: selector => ({setAttribute: (name, value) => attributes.set(selector + ':' + name, value)}),
+    querySelectorAll: () => [script],
+  };
+  for (const page of ['Today','Watchlist','Screener','Portfolio','Delivery','Journal','Alerts','Today']) {
+    updatePageMetadata(page, doc);
+    const seo = WORKSPACE_SEO[page];
+    assert.equal(doc.title, seo.title);
+    assert.equal(attributes.get('meta[name="robots"]:content'), robotsForPage(seo));
+    assert.equal(attributes.get('link[rel="canonical"]:href'), SITE_ORIGIN + seo.path);
+    assert.equal(attributes.get('meta[property="og:url"]:content'), SITE_ORIGIN + seo.path);
+    assert.equal(attributes.get('meta[name="description"]:content'), seo.description);
+    const graph = JSON.parse(script.textContent)['@graph'];
+    assert.equal(graph[0].url, SITE_ORIGIN + seo.path);
+    assert.equal(graph[0].name, seo.title);
+    assert.equal(graph[1].name, 'Alpha Nova');
+  }
 });

@@ -11,8 +11,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import marketHandler from './api/market.js';
 import pushHandler from './api/push.js';
-import { VIEW_SEO, seoForView } from './src/seo.js';
+import { VIEW_SEO, WORKSPACE_SEO, seoForView } from './src/seo.js';
 import { viewHtml } from './lib/seo-html.js';
+
+// Static workspace entry pages built by scripts/build-workspace-seo.mjs
+// (dist/charts.html served at /charts, etc.). The React router also handles
+// these paths client-side; the static files give crawlers unique metadata.
+const WORKSPACE_FILES = new Map(
+  Object.values(WORKSPACE_SEO).filter(s => s.path !== '/').map(s => [s.path, `dist${s.path}.html`]),
+);
+const WORKSPACE_ROBOTS = new Map(
+  Object.entries(WORKSPACE_SEO).map(([page, s]) => [s.path, { page, robots: s.noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large' }]),
+);
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(root, 'dist');
@@ -89,7 +99,8 @@ async function serveFile(req, res, pathname, searchParams) {
     return;
   }
   try {
-    const target = pathname === '/' ? path.join(dist, 'index.html') : file;
+    const workspaceFile = WORKSPACE_FILES.get(pathname);
+    const target = pathname === '/' ? path.join(dist, 'index.html') : workspaceFile ? path.join(root, workspaceFile) : file;
     const s = await stat(target);
     if (!s.isFile()) throw new Error('Not a file');
     let body = await readFile(target);
@@ -97,7 +108,7 @@ async function serveFile(req, res, pathname, searchParams) {
     const headers = { ...securityHeaders(), 'Cache-Control': cacheControl(pathname) };
     if (TYPES[ext]) headers['Content-Type'] = TYPES[ext];
     if (ext === '.html') {
-      headers['X-Robots-Tag'] = 'index, follow, max-image-preview:large';
+      headers['X-Robots-Tag'] = WORKSPACE_ROBOTS.get(pathname)?.robots || 'index, follow, max-image-preview:large';
       if (pathname === '/') {
         const page = searchParams.get('page') || 'Today';
         if (!VIEW_SEO[page]) {
